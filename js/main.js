@@ -890,7 +890,7 @@ async function evAtaque(p) {
   let done = false;
   const answer = async o => {
     if (done) return; done = true; S.busy = true;
-    const left = stopTimer(), ok = !!o && o.n === card.n; markOpts(card.n, o && o.n); p.st.atkN++;
+    const left = stopTimer(), ok = !!o && o.n === card.n; markOpts(card.n, o && o.n); p.st.atkN++; track(p, card.n, ok);
     haptic(ok ? 35 : [70, 50, 70]); await wait(650); dockStatus(ok ? 'Defesa certa!' : (o ? 'Defesa errada' : 'Tempo esgotado'), ok ? 'var(--ok)' : 'var(--bad)');
     let v;
     if (ok) { p.st.atk++; const pts = award(p, 100, left); sfx('ok'); flash(true); toast('+' + pts, '#3DDC97'); bump(p, true); edgeGlow('#3DDC97'); await robotStrike(p); v = { cls: 'ok', verdict: `Defendido +${pts}` }; }
@@ -911,7 +911,7 @@ async function evRaioX(p) {
   let done = false;
   const answer = async o => {
     if (done) return; done = true; S.busy = true;
-    const left = stopTimer(), ok = !!o && o.n === card.n; markOpts(card.n, o && o.n); p.st.rxN++;
+    const left = stopTimer(), ok = !!o && o.n === card.n; markOpts(card.n, o && o.n); p.st.rxN++; track(p, card.n, ok);
     haptic(ok ? 35 : [70, 50, 70]); await wait(750); dockStatus(ok ? 'Diagnóstico certo!' : (o ? 'Diagnóstico errado' : 'Tempo esgotado'), ok ? 'var(--ok)' : 'var(--bad)');
     let v;
     if (ok) { p.st.rx++; const pts = award(p, 120, left); sfx('ok'); flash(true); toast('+' + pts, '#3DDC97'); bump(p, true); edgeGlow('#3DDC97'); await robotStrike(p, false); v = { cls: 'ok', verdict: `Diagnóstico certo +${pts}` }; }
@@ -942,7 +942,7 @@ async function evIncidente(p) {
     if (done) return; done = true; S.busy = true; stopTimer();
     const hits = [...sel].filter(n => inc.rel.includes(n)).length, wrong = sel.size - hits, total = inc.rel.length;
     document.querySelectorAll('#chips .chip').forEach(b => { const n = +b.dataset.n, isRel = inc.rel.includes(n), chosen = sel.has(n); b.classList.add(isRel && chosen ? 'ok' : chosen ? 'bad' : isRel ? 'miss' : 'dim'); });
-    p.st.incN++; p.st.incHits += hits;
+    p.st.incN++; p.st.incHits += hits; inc.rel.forEach(n => track(p, n, sel.has(n)));
     haptic(hits === total && !wrong ? 35 : [70, 50, 70]); await wait(1300); dockStatus(`${hits} de ${total} conexões certas`, hits === total && !wrong ? 'var(--ok)' : hits >= Math.ceil(total / 2) ? 'var(--volt)' : 'var(--bad)');
     let v; const perfect = hits === total && wrong === 0;
     if (perfect) { const pts = award(p, hits * 60 + 100); sfx('ok'); flash(true); toast('Caso resolvido +' + pts, '#3DDC97'); bump(p, true); confetti(3); await robotStrike(p); v = { cls: 'ok', verdict: `Conexões perfeitas +${pts}` }; }
@@ -981,13 +981,13 @@ async function evRelampago() {
         if (locked.has(i)) return;
         const p = S.players[i];
         if (match) { clearTimeout(to); resolve({ winner: i }); }
-        else { locked.add(i); document.querySelector(`.buzz[data-i="${i}"]`).classList.add('lock'); p.score = Math.max(0, p.score - 30); gains[i] -= 30; p.R.confused(); sfx('bad'); bump(p, false); $('#qres').innerHTML = `<span style="color:var(--bad)">${esc(p.name)} caiu na armadilha · −30</span>`; $(`#bsc${i}`).textContent = gains[i]; }
+        else { locked.add(i); document.querySelector(`.buzz[data-i="${i}"]`).classList.add('lock'); p.score = Math.max(0, p.score - 30); gains[i] -= 30; track(p, card.n, false); p.R.confused(); sfx('bad'); bump(p, false); $('#qres').innerHTML = `<span style="color:var(--bad)">${esc(p.name)} caiu na armadilha · −30</span>`; $(`#bsc${i}`).textContent = gains[i]; }
       };
     });
     buzzHandler = null;
     const bar2 = $('#qbar'); if (bar2) { const m = getComputedStyle(bar2).transform; bar2.style.transition = 'none'; bar2.style.transform = m; }
     if (res.winner != null) {
-      const p = S.players[res.winner]; p.score += 60; gains[res.winner] += 60; p.st.rel++;
+      const p = S.players[res.winner]; p.score += 60; gains[res.winner] += 60; p.st.rel++; track(p, card.n, true);
       sfx('ok'); p.R.cheer(); burst(worldOf(p.R.body).add(new THREE.Vector3(0, .6, 0)), new THREE.Color(p.color), 160, 4); bump(p, true);
       $('#qres').innerHTML = `<span style="color:${p.color}">${esc(p.name)} bateu primeiro · +60</span>`; $(`#bsc${res.winner}`).textContent = gains[res.winner];
     } else if (match) { $('#qres').innerHTML = `<span style="color:var(--amber)">Combinava! Ninguém bateu a tempo.</span>`; sfx('sad'); }
@@ -1014,7 +1014,7 @@ async function evCoringa(p) {
   document.querySelectorAll('.pair img').forEach(im => im.onclick = () => lightbox(rsrc(+im.dataset.n), rsrc(+im.dataset.n, 'b')));
   startTimer(60000, null);
   await new Promise(res => {
-    $('#go').onclick = () => { stopTimer(); const pts = award(p, 100); p.st.cor++; sfx('ok'); flash(true); toast('Conexão aprovada +' + pts, '#C77DFF'); bump(p, true); p.R.cheer(); confetti(4); res(); };
+    $('#go').onclick = () => { stopTimer(); const pts = award(p, 100); p.st.cor++; track(p, A.n, true); track(p, B.n, true); sfx('ok'); flash(true); toast('Conexão aprovada +' + pts, '#C77DFF'); bump(p, true); p.R.cheer(); confetti(4); res(); };
     $('#no').onclick = () => { stopTimer(); sfx('deal'); res(); };
   });
   hud();
@@ -1074,15 +1074,18 @@ function endGame(survived) {
   dock(`<div class="endgrid">
     <div><div class="eyebrow" style="margin-bottom:8px">${survived ? 'AI Factory protegida' : 'A integridade chegou a zero'}</div>
       <h3>${survived ? `${esc(rank[0].name)} venceu a partida` : 'O sistema caiu. Revejam as defesas e tentem de novo.'}</h3>
-      <ol class="rank">${rank.map((p, i) => `<li style="animation-delay:${i * 90}ms"><span class="pos">${i + 1}</span><i class="dot" style="background:${p.color}"></i><b>${esc(p.name)}</b><span class="st">${p.st.atk + p.st.rx} acertos · seq ${p.best}</span><span class="pts">${p.score.toLocaleString('pt-BR')}</span></li>`).join('')}</ol>
-      <div class="row" style="margin-top:12px"><button class="btn pri wide" id="go">Jogar de novo</button><button class="btn sec" id="newGroup">Novo grupo</button><button class="btn sec" id="endLib">Cartas</button></div></div>
+      <ol class="rank">${rank.map((p, i) => `<li style="animation-delay:${i * 90}ms"><span class="pos">${i + 1}</span><i class="dot" style="background:${p.color}"></i><b>${esc(p.name)}<small class="tname">${tierOf(p).t}</small></b>${tierChip(p)}<span class="pts">${p.score.toLocaleString('pt-BR')}</span></li>`).join('')}</ol>
+      <div class="row" style="margin-top:12px"><button class="btn post wide" id="postBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 12v7a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-7M16 6l-4-4-4 4M12 2v13"/></svg>Postar resultado</button></div><div class="row" style="margin-top:8px"><button class="btn pri wide" id="go">Jogar de novo</button><button class="btn sec" id="newGroup">Novo grupo</button><button class="btn sec" id="endLib">Cartas</button><button class="btn sec installBtn" hidden>Instalar app</button></div></div>
     <div>${AW.length ? `<div class="eyebrow" style="margin-bottom:8px">Destaques</div><div class="awards">${AW.map(a => `<div class="award"><small>${a.t}</small><b>${esc(a.who)}</b><span>${a.d} · ${a.best}</span></div>`).join('')}</div>` : ''}
+      <div class="eyebrow" style="margin:14px 0 6px">Níveis de domínio</div><ol class="tiers">${TIERS.map((t, i) => `<li style="--lc:${LVL_COLOR[t.lvl]}"><b>N${i + 1}</b> ${t.t} <span>${t.lvl}</span></li>`).join('')}</ol>
       <div class="eyebrow" style="margin:14px 0 6px">Para aprofundar</div>
       <ol class="refs"><li>Cartas RiskCards e Incident Cards · Letramento IA (Prof. Alexandre Caramelo).</li>
       <li>PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Letramento em Inteligência Artificial: fundamentos, práticas, epistemologia e implicações éticas para a cognição contemporânea. <i>SADSJ</i>, v. 11, n. 33, p. 52-98, 2025.</li>
       <li>PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Framework P.E.N.S.A.: uma proposição metodológica para a educação executiva mediada por inteligência artificial. <i>SADSJ</i>, v. 11, n. 33, 2025.</li>
       <li><a href="https://www.letramento.ai" target="_blank" rel="noopener">www.letramento.ai</a></li></ol></div></div>`);
   $('#go').onclick = () => restart(false); $('#newGroup').onclick = () => restart(true); $('#endLib').onclick = () => openLib('r');
+  $('#postBtn').onclick = () => openShare(0);
+  document.querySelectorAll('.installBtn').forEach(b => b.onclick = doInstall); refreshInstall();
 }
 function restart(newGroup) {
   if (podium) { scene.remove(podium); podium = null; }
@@ -1095,7 +1098,7 @@ function restart(newGroup) {
 /* ---------------- configuração ---------------- */
 const SETUP = { n: 2, names: [], colors: PCOLORS.slice(), rounds: 5 };
 try { const s = JSON.parse(localStorage.getItem('rc-setup') || 'null'); if (s && s.n) Object.assign(SETUP, s); } catch (e) {}
-function freshStats() { return { score: 0, streak: 0, best: 0, power: { shield: 0, double: 0 }, st: { atk: 0, atkN: 0, rx: 0, rxN: 0, incHits: 0, incN: 0, rel: 0, cor: 0 } }; }
+function freshStats() { return { score: 0, streak: 0, best: 0, power: { shield: 0, double: 0 }, st: { atk: 0, atkN: 0, rx: 0, rxN: 0, incHits: 0, incN: 0, rel: 0, cor: 0, cards: {} } }; }
 function renderSetup() {
   $('#pCount').textContent = SETUP.n;
   $('#plist').innerHTML = Array.from({ length: SETUP.n }, (_, i) => `<div class="prow"><button class="swatch" data-i="${i}" style="background:${SETUP.colors[i]};--pc:${SETUP.colors[i]}" aria-label="Trocar a cor do jogador ${i + 1}"></button><input id="pname${i}" maxlength="16" autocomplete="off" placeholder="Jogador ${i + 1}" value="${esc(SETUP.names[i] || '')}" aria-label="Nome do jogador ${i + 1}"></div>`).join('');
@@ -1134,6 +1137,192 @@ function startGame() {
   resize(); hud(); sfx('win'); toast('Partida iniciada', '#2FD6F0');
   S.players.forEach((p, i) => setTimeout(() => p.R.wave(), i * 120));
   setTimeout(showTurn, 700);
+}
+
+/* ============================================================
+   RESULTADOS: domínio por área, nível do jogador e cartão para postar
+   ============================================================ */
+const SITE_URL = 'https://enosluiz.github.io/ia-sob-ataque/';
+const IS_ARTIFACT = !!(window.claude && window.claude.use);
+// Agrupamento das 30 RiskCards em cinco áreas de domínio (organização didática do jogo).
+const DOMAINS = [
+  { k: 'dados', t: 'Dados e Modelos', c: '#2FD6F0', n: [1, 2, 3, 6, 7, 15] },
+  { k: 'seg', t: 'Segurança e Ataques', c: '#FF4D63', n: [4, 5, 10, 13, 21, 24, 30] },
+  { k: 'gov', t: 'Governança e Conformidade', c: '#F5A524', n: [8, 9, 12, 14, 16, 20, 22] },
+  { k: 'soc', t: 'Sociedade e Confiança', c: '#C77DFF', n: [17, 19, 25, 26, 27] },
+  { k: 'ops', t: 'Operação e Futuro', c: '#3DDC97', n: [11, 18, 23, 28, 29] },
+];
+// Patentes do básico ao avançado
+const TIERS = [
+  { t: 'Recruta da AI Factory', lvl: 'Básico', d: 'Começou a reconhecer os riscos da IA.' },
+  { t: 'Vigia de Sinais', lvl: 'Básico', d: 'Já identifica sinais de risco no dia a dia.' },
+  { t: 'Analista de Riscos', lvl: 'Intermediário', d: 'Conecta riscos às defesas certas na maior parte das vezes.' },
+  { t: 'Estrategista de Defesas', lvl: 'Avançado', d: 'Escolhe defesas com precisão e liga riscos a casos reais.' },
+  { t: 'Guardião da AI Factory', lvl: 'Avançado', d: 'Domínio pleno: protege a AI Factory com consistência.' },
+];
+const LVL_COLOR = { 'Básico': '#7FB2E5', 'Intermediário': '#F5A524', 'Avançado': '#3DDC97' };
+function track(p, n, ok) { const c = p.st.cards[n] || (p.st.cards[n] = { ok: 0, miss: 0 }); ok ? c.ok++ : c.miss++; }
+function domainOf(p, D) {
+  let ok = 0, miss = 0; D.n.forEach(n => { const c = p.st.cards[n]; if (c) { ok += c.ok; miss += c.miss; } });
+  const att = ok + miss, acc = att ? ok / att : 0;
+  const lvl = !att ? null : acc >= .8 && att >= 2 ? 'Avançado' : acc >= .5 ? 'Intermediário' : 'Básico';
+  return { ...D, ok, miss, att, acc, lvl };
+}
+function tierOf(p) {
+  let ok = 0, miss = 0; Object.values(p.st.cards).forEach(c => { ok += c.ok; miss += c.miss; });
+  const att = ok + miss, acc = att ? ok / att : 0;
+  let i = acc >= .9 ? 4 : acc >= .75 ? 3 : acc >= .55 ? 2 : acc >= .35 ? 1 : 0;
+  if (att < 4) i = Math.min(i, 2); if (att < 2) i = Math.min(i, 1);
+  return { i, ...TIERS[i], att, ok, acc };
+}
+function cardsOf(p) {
+  const e = Object.entries(p.st.cards).map(([n, c]) => ({ n: +n, ...c }));
+  return { mastered: e.filter(c => c.ok > 0 && c.ok >= c.miss).sort((a, b) => b.ok - a.ok).map(c => c.n), review: e.filter(c => c.miss > c.ok).map(c => c.n) };
+}
+function tierChip(p) { const T = tierOf(p); return `<span class="tier" style="--lc:${LVL_COLOR[T.lvl]}">N${T.i + 1} · ${T.lvl}</span>`; }
+
+/* ---------- cartão 1080 × 1350 ---------- */
+function rr(x, X, Y, w, h, r) { x.save(); x.translate(X, Y); roundRect(x, w, h, r); x.restore(); }
+function drawShareCard(p, rankPos, total) {
+  const Wc = 1080, Hc = 1350, c = document.createElement('canvas'); c.width = Wc; c.height = Hc; const x = c.getContext('2d');
+  const T = tierOf(p), doms = DOMAINS.map(D => domainOf(p, D)), { mastered, review } = cardsOf(p);
+  // fundo
+  const g = x.createLinearGradient(0, 0, 0, Hc); g.addColorStop(0, '#0C2244'); g.addColorStop(.55, '#07111F'); g.addColorStop(1, '#050B16'); x.fillStyle = g; x.fillRect(0, 0, Wc, Hc);
+  x.strokeStyle = 'rgba(47,214,240,.07)'; x.lineWidth = 2; for (let i = 0; i < Wc; i += 54) { x.beginPath(); x.moveTo(i, 0); x.lineTo(i, Hc); x.stroke(); } for (let i = 0; i < Hc; i += 54) { x.beginPath(); x.moveTo(0, i); x.lineTo(Wc, i); x.stroke(); }
+  const glow = x.createRadialGradient(Wc * .78, 250, 10, Wc * .78, 250, 420); glow.addColorStop(0, p.color + '55'); glow.addColorStop(1, 'transparent'); x.fillStyle = glow; x.fillRect(0, 0, Wc, 700);
+  x.strokeStyle = p.color; x.lineWidth = 8; rr(x, 22, 22, Wc - 44, Hc - 44, 40); x.stroke();
+  // cabeçalho
+  if (logoImg) x.drawImage(logoImg, 66, 62, 104, 104 * logoImg.height / logoImg.width);
+  x.fillStyle = '#E7F1FF'; x.font = '700 46px "Chakra Petch"'; x.fillText('RISKCARDS', 190, 106);
+  x.fillStyle = '#F5A524'; x.font = '600 26px "Chakra Petch"'; x.fillText('IA SOB ATAQUE · LETRAMENTO IA', 192, 144);
+  // jogador
+  x.fillStyle = '#A6BCD9'; x.font = '600 28px "Chakra Petch"'; x.fillText(total > 1 ? `${rankPos}º LUGAR DE ${total} · ${p.score.toLocaleString('pt-BR')} PONTOS` : `${p.score.toLocaleString('pt-BR')} PONTOS`, 66, 236);
+  x.fillStyle = p.color; let fs = 92; x.font = `700 ${fs}px "Chakra Petch"`; while (x.measureText(p.name.toUpperCase()).width > Wc - 140 && fs > 50) { fs -= 4; x.font = `700 ${fs}px "Chakra Petch"`; }
+  x.shadowColor = p.color; x.shadowBlur = 30; x.fillText(p.name.toUpperCase(), 62, 236 + fs + 6); x.shadowBlur = 0;
+  // selo de nível
+  let y = 236 + fs + 46;
+  const lc = LVL_COLOR[T.lvl];
+  rr(x, 62, y, Wc - 124, 190, 26); x.fillStyle = 'rgba(14,29,51,.92)'; x.fill(); x.strokeStyle = lc; x.lineWidth = 4; x.stroke();
+  // hexágono com o número do nível
+  const hx = 160, hy = y + 95; x.beginPath(); for (let k = 0; k < 6; k++) { const a = Math.PI / 6 + k * Math.PI / 3; x.lineTo(hx + Math.cos(a) * 70, hy + Math.sin(a) * 70); } x.closePath(); x.fillStyle = lc; x.fill();
+  x.fillStyle = '#07111F'; x.font = '700 30px "Chakra Petch"'; x.textAlign = 'center'; x.fillText('NÍVEL', hx, hy - 8); x.font = '700 58px "Chakra Petch"'; x.fillText(T.i + 1, hx, hy + 46); x.textAlign = 'left';
+  x.fillStyle = lc; x.font = '700 28px "Chakra Petch"'; x.fillText(T.lvl.toUpperCase() + ' · DOMÍNIO EM RISCOS DE IA', 262, y + 62);
+  x.fillStyle = '#FFFFFF'; x.font = '700 50px "Chakra Petch"'; x.fillText(T.t.toUpperCase(), 262, y + 118, Wc - 340);
+  x.fillStyle = '#A6BCD9'; x.font = '500 26px "IBM Plex Sans"'; x.fillText(T.att ? `${T.ok} de ${T.att} jogadas certas · ${T.d}` : T.d, 262, y + 160, Wc - 340);
+  // domínios
+  y += 236;
+  x.fillStyle = '#2FD6F0'; x.font = '700 26px "Chakra Petch"'; x.fillText('DOMÍNIO POR ÁREA', 66, y); y += 22;
+  doms.forEach(D => {
+    y += 52;
+    x.fillStyle = '#E7F1FF'; x.font = '600 28px "IBM Plex Sans"'; x.fillText(D.t, 66, y);
+    const lab = D.lvl || 'Não explorado', col = D.lvl ? LVL_COLOR[D.lvl] : '#56708F';
+    x.font = '700 24px "Chakra Petch"'; const lw = x.measureText(lab.toUpperCase()).width + 30;
+    rr(x, Wc - 66 - lw, y - 30, lw, 40, 20); x.fillStyle = col + '33'; x.fill(); x.strokeStyle = col; x.lineWidth = 2; x.stroke();
+    x.fillStyle = col; x.textAlign = 'center'; x.fillText(lab.toUpperCase(), Wc - 66 - lw / 2, y - 2); x.textAlign = 'left';
+    rr(x, 66, y + 14, Wc - 132, 12, 6); x.fillStyle = '#132846'; x.fill();
+    if (D.att) { rr(x, 66, y + 14, Math.max(14, (Wc - 132) * D.acc), 12, 6); x.fillStyle = D.c; x.fill(); }
+    y += 18;
+  });
+  // cartas dominadas e a revisar
+  y += 58;
+  const thumbs = (list, x0, maxN, label, col) => {
+    x.fillStyle = col; x.font = '700 26px "Chakra Petch"'; x.fillText(label, x0, y);
+    const tw = 112, th = 150, gap = 14;
+    if (!list.length) { x.fillStyle = '#56708F'; x.font = '500 24px "IBM Plex Sans"'; x.fillText(label.startsWith('CARTAS') ? 'Jogue mais rodadas para dominar cartas' : 'Nenhuma carta pendente', x0, y + 56, 470); return; }
+    list.slice(0, maxN).forEach((n, k) => {
+      const im = imgs['r' + n], X = x0 + k * (tw + gap), Y = y + 20;
+      x.save(); rr(x, X, Y, tw, th, 12); x.clip(); if (im) x.drawImage(im, 0, 0, im.width, im.width / tw * th, X, Y, tw, th); x.restore();
+      x.strokeStyle = col; x.lineWidth = 4; rr(x, X, Y, tw, th, 12); x.stroke();
+    });
+  };
+  thumbs(mastered, 66, 4, `CARTAS DOMINADAS · ${mastered.length}`, '#3DDC97');
+  thumbs(review, 594, 3, `PARA REVISAR · ${review.length}`, '#F5A524');
+  // rodapé
+  x.fillStyle = 'rgba(7,17,31,.9)'; x.fillRect(22, Hc - 140, Wc - 44, 118);
+  x.fillStyle = '#E7F1FF'; x.font = '600 28px "IBM Plex Sans"'; x.fillText('Jogue também e teste seu letramento em IA', 66, Hc - 86);
+  x.fillStyle = '#2FD6F0'; x.font = '600 26px "IBM Plex Mono"'; x.fillText(SITE_URL.replace('https://', ''), 66, Hc - 48);
+  x.fillStyle = '#F5A524'; x.font = '700 24px "Chakra Petch"'; x.textAlign = 'right'; x.fillText('#LetramentoIA', Wc - 66, Hc - 48); x.textAlign = 'left';
+  return c;
+}
+function captionFor(p, rankPos, total) {
+  const T = tierOf(p), doms = DOMAINS.map(D => domainOf(p, D)).filter(d => d.lvl), { mastered, review } = cardsOf(p);
+  const top = doms.sort((a, b) => b.acc - a.acc)[0];
+  return [
+    `Alcancei o Nível ${T.i + 1} (${T.lvl}) · ${T.t} no RiskCards: IA sob Ataque, do Letramento IA!`,
+    total > 1 ? `${rankPos}º lugar entre ${total} jogadores, com ${p.score} pontos.` : `${p.score} pontos.`,
+    top ? `Área mais forte: ${top.t} (${top.lvl}).` : '',
+    mastered.length ? `Cartas que dominei: ${mastered.slice(0, 5).map(n => byN(n).t).join(', ')}.` : '',
+    review.length ? `Vou revisar: ${review.slice(0, 3).map(n => byN(n).t).join(', ')}.` : '',
+    `Jogue também: ${SITE_URL}`,
+    '#LetramentoIA #RiskCards #InteligenciaArtificial #GovernancaDeIA',
+  ].filter(Boolean).join('\n');
+}
+async function openShare(idx) {
+  const rank = [...S.players].sort((a, b) => b.score - a.score);
+  let p = rank[idx || 0];
+  const d = document.createElement('div'); d.className = 'sharebox'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Postar resultado');
+  d.innerHTML = `<div class="sb-in"><div class="sb-head"><div><div class="eyebrow">Postar resultado</div><h3>Seu cartão de domínio</h3></div><button class="iconbtn" id="sbClose" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    ${rank.length > 1 ? `<div class="sb-players" id="sbPl">${rank.map((q, i) => `<button class="pchip${q === p ? ' on' : ''}" data-i="${i}" style="--pc:${q.color}"><i class="dot"></i><b>${esc(q.name)}</b></button>`).join('')}</div>` : ''}
+    <img class="sb-img" id="sbImg" alt="Cartão de resultado">
+    <label class="sb-lab" for="sbCap">Legenda</label><textarea id="sbCap" rows="5"></textarea>
+    <div class="sb-acts">
+      <button class="btn pri wide" id="sbShare" hidden>Compartilhar</button>
+      <button class="btn pri wide" id="sbSave">Salvar imagem</button>
+      <button class="btn sec" id="sbCopy">Copiar legenda</button>
+    </div>
+    <div class="sb-net"><span class="note">Poste em:</span><a class="btn sec" id="sbLi" target="_blank" rel="noopener">LinkedIn</a><a class="btn sec" id="sbWa" target="_blank" rel="noopener">WhatsApp</a><a class="btn sec" id="sbX" target="_blank" rel="noopener">X</a></div>
+    <p class="note" id="sbMsg">Salve a imagem e anexe ao post; a legenda já leva o link do jogo.</p></div>`;
+  document.body.appendChild(d); sfx('power');
+  const close = () => d.remove();
+  d.querySelector('#sbClose').onclick = close; d.onclick = e => { if (e.target === d) close(); };
+  d.onkeydown = e => { if (e.key === 'Escape') close(); };
+  let blob = null;
+  const render = async () => {
+    const pos = rank.indexOf(p) + 1, cv = drawShareCard(p, pos, rank.length);
+    const cap = captionFor(p, pos, rank.length); $('#sbCap').value = cap;
+    $('#sbImg').src = cv.toDataURL('image/jpeg', .85);
+    blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const short = `Alcancei o ${tierOf(p).t} (${tierOf(p).lvl}) no RiskCards: IA sob Ataque, do Letramento IA!`;
+    $('#sbLi').href = 'https://www.linkedin.com/sharing/share-offsite/?url=' + encodeURIComponent(SITE_URL);
+    $('#sbWa').href = 'https://wa.me/?text=' + encodeURIComponent(cap);
+    $('#sbX').href = 'https://twitter.com/intent/tweet?text=' + encodeURIComponent(short + ' ' + SITE_URL + ' #LetramentoIA');
+    const file = new File([blob], `riskcards-${p.name.replace(/[^\w-]+/g, '_')}.png`, { type: 'image/png' });
+    $('#sbShare').hidden = IS_ARTIFACT || !(navigator.canShare && navigator.canShare({ files: [file] }));
+    $('#sbShare').onclick = async () => { try { await navigator.share({ files: [file], text: $('#sbCap').value, title: 'RiskCards: IA sob Ataque' }); } catch (e) {} };
+    $('#sbSave').onclick = async () => {
+      const name = file.name;
+      if (IS_ARTIFACT) {
+        try { const dl = await window.claude.use('downloads'); if (!dl) throw 0; await dl.save({ filename: name, data: blob }); $('#sbMsg').textContent = 'Imagem salva. Anexe ao post e cole a legenda.'; }
+        catch (e) { $('#sbMsg').textContent = e && e.code === 'declined' ? 'Download cancelado.' : 'Neste acesso não dá para salvar direto. Toque e segure a imagem acima para salvá-la.'; }
+      } else { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000); $('#sbMsg').textContent = 'Imagem salva. Anexe ao post e cole a legenda.'; }
+    };
+  };
+  $('#sbCopy').onclick = () => { const t = $('#sbCap'); const ok = () => { $('#sbCopy').textContent = 'Legenda copiada'; setTimeout(() => $('#sbCopy').textContent = 'Copiar legenda', 1800); };
+    if (navigator.clipboard) navigator.clipboard.writeText(t.value).then(ok, () => { t.select(); }); else t.select(); };
+  if (d.querySelector('#sbPl')) d.querySelectorAll('#sbPl .pchip').forEach(b => b.onclick = () => { p = rank[+b.dataset.i]; d.querySelectorAll('#sbPl .pchip').forEach(x => x.classList.toggle('on', x === b)); render(); sfx('deal'); });
+  await render();
+  d.querySelector('#sbClose').focus();
+}
+
+/* ---------- PWA: instalação ---------- */
+let installEvt = null;
+const IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone;
+function refreshInstall() {
+  const can = !IS_ARTIFACT && !STANDALONE && (installEvt || IOS);
+  document.querySelectorAll('.installBtn').forEach(b => b.hidden = !can);
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; refreshInstall(); });
+addEventListener('appinstalled', () => { installEvt = null; refreshInstall(); toast('App instalado', '#3DDC97'); });
+async function doInstall() {
+  if (installEvt) { installEvt.prompt(); try { await installEvt.userChoice; } catch (e) {} installEvt = null; refreshInstall(); return; }
+  const d = document.createElement('div'); d.className = 'sharebox'; d.setAttribute('role', 'dialog');
+  d.innerHTML = `<div class="sb-in"><div class="sb-head"><div><div class="eyebrow">Instalar no iPhone ou iPad</div><h3>Leve o jogo na tela inicial</h3></div><button class="iconbtn" id="ioClose" aria-label="Fechar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <ol class="steps"><li>No Safari, toque em <b>Compartilhar</b> (o quadrado com a seta para cima).</li><li>Escolha <b>Adicionar à Tela de Início</b>.</li><li>Toque em <b>Adicionar</b>. O RiskCards abre em tela cheia e funciona mesmo sem internet depois da primeira partida.</li></ol></div>`;
+  document.body.appendChild(d); d.querySelector('#ioClose').onclick = () => d.remove(); d.onclick = e => { if (e.target === d) d.remove(); };
+}
+if (!IS_ARTIFACT && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
 /* ---------------- biblioteca e lightbox ---------------- */
@@ -1305,4 +1494,5 @@ function loadImg(src) { return new Promise(res => { const i = new Image(); i.onl
   $('#gateBtn').focus({ preventScroll: true });
   $('#gateBtn').onclick = async () => { sfx('deal'); $('#gate').hidden = true; await runIntro(); showSetup(); };
   $('#gateSkip').onclick = () => showSetup();
+  document.querySelectorAll('.installBtn').forEach(b => b.onclick = doInstall); refreshInstall();
 })();

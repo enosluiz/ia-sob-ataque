@@ -14,6 +14,16 @@ A integridade da AI Factory é da equipe inteira; os pontos são de cada jogador
 
 Tecnologia: Three.js; personagens e cenário gerados no Blender por script (`blender/`).
 
+## Instalar como aplicativo (PWA)
+
+- **Android/Chrome:** botão *Instalar* na tela inicial do jogo ou menu ⋮ → *Instalar app*.
+- **iPhone/Safari:** Compartilhar → *Adicionar à Tela de Início*.
+- Após a primeira abertura (cerca de 11 MB), o jogo funciona sem internet.
+
+## Postar o resultado
+
+Ao final da partida, *Postar resultado* gera um cartão (1080×1350) com o nível do jogador, o desempenho por área de risco e as cartas a revisar, além de uma legenda pronta. Níveis: N1 Recruta da AI Factory e N2 Vigia de Sinais (básico), N3 Analista de Riscos (intermediário), N4 Estrategista de Defesas e N5 Guardião da AI Factory (avançado). O agrupamento das 30 cartas em cinco áreas é uma escolha didática do jogo, não uma classificação do baralho original.
+
 ## Créditos e referências
 
 - Cartas RiskCards e Incident Cards · Letramento IA (Prof. Alexandre Caramelo).
