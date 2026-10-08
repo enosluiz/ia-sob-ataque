@@ -1,16 +1,22 @@
-# IA sob Ataque
+# RiskCards: IA sob Ataque
 
-Jogo de cartas 3D do **Letramento IA** sobre riscos da IA generativa e suas defesas.
+Jogo de ação do **Letramento IA** para a turma, de 1 a 8 jogadores ou equipes, construído com o baralho RiskCards (30 RiskCards, 12 Incident Cards e a carta Coringa).
 
-- **Fase 1 · Ameaças:** 18 cartas de risco; o jogador escolhe a defesa que neutraliza cada uma.
-- **Fase 2 · AI Factory:** oito componentes (LLM, RAG, Vector DB, AI Agent, MCP, Guardrails, Evals, Observability) encaixados pela função.
+A cada vez, o jogador rola um dado 3D que sorteia o desafio:
 
-Tecnologia: Three.js (cena, animações, partículas) e modelos 3D gerados no Blender por script (`blender/`).
+- **Ataque:** um vilão lança uma RiskCard; escolha a defesa certa.
+- **Raio-X:** um sinal suspeito aparece; descubra qual risco ele indica.
+- **Incidente:** um caso real; marque as RiskCards que se conectam a ele.
+- **Relâmpago:** todos jogam ao mesmo tempo; aperte seu botão quando ameaça e defesa combinarem.
+- **Coringa:** conecte dois riscos, convença a turma e ganhe um poder (Escudo, Dobro ou Ímã).
 
-O modo turma (ranking ao vivo) funciona somente na versão hospedada no claude.ai; neste site o jogo é individual.
+A integridade da AI Factory é da equipe inteira; os pontos são de cada jogador. Ao final, os robôs sobem ao pódio.
 
-## Para aprofundar
+Tecnologia: Three.js; personagens e cenário gerados no Blender por script (`blender/`).
 
-- PINTO, Alexandre Caramelo; CORREA, Enos Luiz da Silva; MORAES, Fernando Pedro de. Letramento em Inteligência Artificial: fundamentos, práticas, epistemologia e implicações éticas para a cognição contemporânea. *SADSJ*, v. 11, n. 33, p. 52-98, 2025.
-- PINTO, Alexandre Caramelo; CORREA, Enos Luiz da Silva; MORAES, Fernando Pedro de. Framework P.E.N.S.A.: uma proposição metodológica para a educação executiva mediada por inteligência artificial. *SADSJ*, v. 11, n. 33, 2025.
+## Créditos e referências
+
+- Cartas RiskCards e Incident Cards · Letramento IA (Prof. Alexandre Caramelo).
+- PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Letramento em Inteligência Artificial: fundamentos, práticas, epistemologia e implicações éticas para a cognição contemporânea. *SADSJ*, v. 11, n. 33, p. 52-98, 2025.
+- PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Framework P.E.N.S.A.: uma proposição metodológica para a educação executiva mediada por inteligência artificial. *SADSJ*, v. 11, n. 33, 2025.
 - [www.letramento.ai](https://www.letramento.ai)
