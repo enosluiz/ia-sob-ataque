@@ -24,9 +24,13 @@ Tecnologia: Three.js; personagens e cenário gerados no Blender por script (`ble
 
 Ao final da partida, *Postar resultado* gera um cartão (1080×1350) com o nível do jogador, o desempenho por área de risco e as cartas a revisar, além de uma legenda pronta. Níveis: N1 Recruta da AI Factory e N2 Vigia de Sinais (básico), N3 Analista de Riscos (intermediário), N4 Estrategista de Defesas e N5 Guardião da AI Factory (avançado). O agrupamento das 30 cartas em cinco áreas é uma escolha didática do jogo, não uma classificação do baralho original.
 
+## Autores
+
+Alexandre Caramelo Pinto, Caio Flavio Stettiner, Enos Luiz da Silva Corrêa e Fernando Pedro de Moraes, no âmbito do Letramento.ai. Os autores do jogo são também os autores do baralho RiskCards.
+
 ## Créditos e referências
 
-- Cartas RiskCards e Incident Cards · Letramento IA (Prof. Alexandre Caramelo).
+- Jogo e cartas RiskCards e Incident Cards © 2026 Alexandre Caramelo Pinto, Caio Flavio Stettiner, Enos Luiz da Silva Corrêa e Fernando Pedro de Moraes · Letramento.ai.
 - PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Letramento em Inteligência Artificial: fundamentos, práticas, epistemologia e implicações éticas para a cognição contemporânea. *SADSJ*, v. 11, n. 33, p. 52-98, 2025.
 - PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Framework P.E.N.S.A.: uma proposição metodológica para a educação executiva mediada por inteligência artificial. *SADSJ*, v. 11, n. 33, 2025.
 - [www.letramento.ai](https://www.letramento.ai)

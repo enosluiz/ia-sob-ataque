@@ -1079,7 +1079,7 @@ function endGame(survived) {
     <div>${AW.length ? `<div class="eyebrow" style="margin-bottom:8px">Destaques</div><div class="awards">${AW.map(a => `<div class="award"><small>${a.t}</small><b>${esc(a.who)}</b><span>${a.d} · ${a.best}</span></div>`).join('')}</div>` : ''}
       <div class="eyebrow" style="margin:14px 0 6px">Níveis de domínio</div><ol class="tiers">${TIERS.map((t, i) => `<li style="--lc:${LVL_COLOR[t.lvl]}"><b>N${i + 1}</b> ${t.t} <span>${t.lvl}</span></li>`).join('')}</ol>
       <div class="eyebrow" style="margin:14px 0 6px">Para aprofundar</div>
-      <ol class="refs"><li>Cartas RiskCards e Incident Cards · Letramento IA (Prof. Alexandre Caramelo).</li>
+      <ol class="refs"><li>Jogo e cartas RiskCards e Incident Cards © 2026 Alexandre Caramelo Pinto, Caio Flavio Stettiner, Enos Luiz da Silva Corrêa e Fernando Pedro de Moraes · Letramento.ai.</li>
       <li>PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Letramento em Inteligência Artificial: fundamentos, práticas, epistemologia e implicações éticas para a cognição contemporânea. <i>SADSJ</i>, v. 11, n. 33, p. 52-98, 2025.</li>
       <li>PINTO, A. C.; CORREA, E. L. S.; MORAES, F. P. Framework P.E.N.S.A.: uma proposição metodológica para a educação executiva mediada por inteligência artificial. <i>SADSJ</i>, v. 11, n. 33, 2025.</li>
       <li><a href="https://www.letramento.ai" target="_blank" rel="noopener">www.letramento.ai</a></li></ol></div></div>`);
