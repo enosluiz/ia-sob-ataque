@@ -9,6 +9,9 @@ import { RISKS, CONFUSAVEIS, INCIDENTS, CORINGA, VMAP, COMPS, PCOLORS } from './
 /* estado global usado pelos módulos reaproveitados */
 let threat = null, logoImg = null, backCanvasCache = null, robotProto = null, die = null, podium = null;
 let shake = 0;
+const MOBILE = matchMedia('(pointer:coarse)').matches || innerWidth < 760;
+const haptic = pat => { try { if (MOBILE && navigator.vibrate) navigator.vibrate(pat); } catch (e) {} };
+let zoomedOnce = false;
 const imgs = {};
 const villains = {};
 let robot = null, villain = null; // robot = mascote da abertura e do título
@@ -63,7 +66,7 @@ function sfx(type) {
 /* ---- cena ---- */
 const canvas = $('#gl'), stage = $('#stage');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(devicePixelRatio, MOBILE ? 1.6 : 2));
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.1;
 const scene = new THREE.Scene();
@@ -103,7 +106,7 @@ const lane = new THREE.Mesh(new THREE.PlaneGeometry(6, 22), new THREE.MeshBasicM
 lane.rotation.x = -Math.PI / 2; lane.position.set(0, floorY + .01, -2); scene.add(lane);
 
 // poeira luminosa
-const DUST = 700;
+const DUST = MOBILE ? 380 : 700;
 const dustGeo = new THREE.BufferGeometry();
 const dp = new Float32Array(DUST * 3), dc = new Float32Array(DUST * 3);
 const cCy = new THREE.Color('#2FD6F0'), cAm = new THREE.Color('#F5A524');
@@ -276,7 +279,7 @@ function makeCard(frontCanvas, backC = backCanvasCache) {
   const edge = new THREE.Mesh(new THREE.PlaneGeometry(CARD_W + .12, CARD_H + .12), new THREE.MeshBasicMaterial({ color: '#2FD6F0', transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
   edge.position.z = -.02;
   g.add(edge, front, back);
-  g.userData = { front, back, edge };
+  g.userData = { front, back, edge, zoom: { canvas: frontCanvas } };
   return g;
 }
 function setFront(card3d, canvasOrImg, aspect) {
@@ -393,7 +396,7 @@ function makeVillain(type, root) {
     V.body.rotation.z = Math.sin(el * .9) * .06 + Math.sin(el * 17) * .07 * p.laugh;
     V.body.rotation.x = p.lean + p.menace * .15 - p.laugh * .12 - p.push * .5;
     root.rotation.y = V.yaw + p.spin;
-    root.position.set(V.x0 + p.dx, FEET, V.z0 - p.push * 2.2);
+    root.position.set(V.x0 + p.dx, CINE.on ? FEET : VFEET, V.z0 - p.push * 2.2);
     root.scale.setScalar(V.s0 * p.fade);
     if (V.head) { V.head.rotation.x = -p.laugh * .45 + Math.sin(el * 17) * .08 * p.laugh + p.menace * .1; V.head.rotation.y = Math.sin(el * .7) * .25 * (1 - p.laugh); }
     if (V.arms.length) {
@@ -423,7 +426,7 @@ function makeVillain(type, root) {
     G(); if (V.shown) return; V.shown = true;
     Object.assign(V.pose, { ...Z }); root.visible = true;
     if (type === 'rebelde') { V.matsBy('robo_branco').forEach(m => m.color.set('#5A5F6E')); V.matsBy('robo_azul').forEach(m => m.color.set('#7A0F1E')); }
-    const at = new THREE.Vector3(V.x0, FEET + .1, V.z0);
+    const at = new THREE.Vector3(V.x0, (CINE.on ? FEET : VFEET) + .1, V.z0);
     if (c.enter === 'sneak') {
       sfx('sneak'); V.pose.rise = 1; V.pose.dx = 3.5; V.pose.walk = 1; V.pose.lean = .25;
       await poseTo(V.pose, { dx: 0 }, 1100, ease.inOut); await poseTo(V.pose, { walk: 0, lean: 0 }, 200);
@@ -631,11 +634,17 @@ const cur = () => S.players[S.turn];
 const mult = p => p.streak >= 5 ? 2 : p.streak >= 3 ? 1.5 : 1;
 function drawRisk() { if (!S.deck.length) S.deck = shuffle(RISKS.map(r => r.n)); return byN(S.deck.pop()); }
 function drawInc() { if (!S.incDeck.length) S.incDeck = shuffle(INCIDENTS.map(i => i.n)); const n = S.incDeck.pop(); return INCIDENTS.find(i => i.n === n); }
-function dock(html) { const d = $('#dock'); d.innerHTML = html; d.scrollTop = 0; return d; }
+function dock(html, pop = true) {
+  const d = $('#dock'); d.innerHTML = html; d.scrollTop = 0;
+  if (pop && html) { d.classList.remove('pop'); void d.offsetWidth; d.classList.add('pop'); }
+  return d;
+}
+function dockStatus(txt, color = 'var(--ink)') { dock(`<div class="status" style="color:${color}">${txt}</div>`, false); }
+const DOTS = '<span class="dots"><i></i><i></i><i></i></span>';
 function toast(txt, color) { const t = $('#toast'); t.textContent = txt; t.style.color = color; t.classList.remove('go'); void t.offsetWidth; t.classList.add('go'); }
 function flash(ok) { const f = $('#flash'); f.classList.toggle('ok', ok); f.classList.remove('go'); void f.offsetWidth; f.classList.add('go'); }
 function splash(type) { const e = EVENTS[type]; $('#splash').innerHTML = `<div style="--ec:${e.c}"><b>${e.t}</b><span>${e.d}</span></div>`; }
-function startTimer(ms, cb) { T.on = true; T.t0 = performance.now(); T.ms = ms; T.cb = cb; $('#timer').classList.add('on'); }
+function startTimer(ms, cb) { T.lastSec = 0; $('#timer').classList.remove('hurry'); T.on = true; T.t0 = performance.now(); T.ms = ms; T.cb = cb; $('#timer').classList.add('on'); }
 function stopTimer() { const was = T.on; T.on = false; T.cb = null; $('#timer').classList.remove('on'); return was ? Math.max(0, 1 - (performance.now() - T.t0) / T.ms) : 0; }
 
 /* ---------------- placar e HUD ---------------- */
@@ -656,7 +665,7 @@ function renderScores() {
   const on = el.querySelector('.pchip.on'); if (on) on.scrollIntoView({ block: 'nearest', inline: 'center' });
 }
 function bump(p, ok) { renderScores(); const c = $(`.pchip[data-i="${S.players.indexOf(p)}"]`); if (c) { c.classList.remove('bump', 'hurt'); void c.offsetWidth; c.classList.add(ok ? 'bump' : 'hurt'); } }
-function whose() { const p = cur(), w = $('#whose'); w.hidden = !p || !S.playing; if (p) w.innerHTML = `<i style="background:${p.color};box-shadow:0 0 10px ${p.color}"></i>Vez de ${esc(p.name)}`; }
+function whose() { const p = cur(), w = $('#whose'); w.hidden = !p || !S.playing; if (p) w.innerHTML = `<i style="background:${p.color};box-shadow:0 0 10px ${p.color}"></i><span>Vez de ${esc(p.name)}</span>`; }
 function award(p, base, left = 0) {
   let pts = Math.round((base + 50 * left) * mult(p));
   if (p.power.double) { pts *= 2; p.power.double = 0; }
@@ -693,21 +702,29 @@ function layoutRobots() {
   const list = S.players.map(p => p.R).filter(Boolean);
   const n = list.length;
   if (robot) { robot.root.visible = !n && !podium; }
-  if (!n) { if (robot) { const cs = Math.min(1.9, VIS * .32) / 2.1; robot.root.scale.setScalar(cs); robot.root.position.set(-Math.min(halfW - .55 * cs - .15, 3.6), FEET, .3); } return; }
+  if (!n) { if (robot) { const cs = Math.min(1.9, VIS * .3) / 2.1; robot.root.scale.setScalar(cs); robot.root.position.set(-Math.min(halfW - .55 * cs - .15, 3.6), FEET, .3); } return; }
   if (podium) return;
-  const span = Math.min(halfW * .86 - .45, .6 + n * .8), gap = n > 1 ? 2 * span / (n - 1) : 0;
-  const s = Math.min(VIS * .25 / 2.2, n > 1 ? gap / 1.05 : 1, .95);
+  const portrait = aspect < .9, rows = portrait && n > 4 ? 2 : 1;
+  const counts = rows === 2 ? [Math.ceil(n / 2), Math.floor(n / 2)] : [n];
+  const per = counts[0];
+  const span = Math.max(0, Math.min(halfW * (portrait ? .74 : .86) - .4, .6 + per * .8)), gap = per > 1 ? 2 * span / (per - 1) : 1.6;
+  const s = Math.min(VIS * (portrait ? .15 : .23) / 2.4, gap / (rows === 2 ? .82 : 1.1), .95);
+  POP = portrait ? 1.12 : 1.22; POPZ = portrait ? .45 : .9;
   list.forEach((R, i) => {
-    const x = n > 1 ? -span + i * gap : 0;
-    R.home.set(x, FEET, 1.0); R.s0 = s; R.yaw = -x * .09;
-    R.root.position.set(x, FEET, R.active ? 1.9 : 1.0); R.root.scale.setScalar(R.active ? s * 1.22 : s);
+    const r = rows === 2 ? i % 2 : 0, j = rows === 2 ? Math.floor(i / 2) : i, c = counts[r];
+    let x = c > 1 ? -span + j * (2 * span / (c - 1)) : 0;
+    if (r === 1) x = c > 1 ? -span + gap / 2 + j * ((2 * span - gap) / Math.max(1, c - 1)) : 0;
+    const z = r === 0 ? 1.0 : -.5, sc = r === 0 ? s : s * .92;
+    R.home.set(x, FEET, z); R.s0 = sc; R.yaw = -x * .09;
+    R.root.position.set(x, FEET, R.active ? z + POPZ : z); R.root.scale.setScalar(R.active ? sc * POP : sc);
+    if (R.label) R.label.scale.set(portrait && n > 3 ? 1.5 : 1.9, portrait && n > 3 ? .375 : .475, 1);
   });
 }
 function setActive(idx) {
   S.players.forEach((p, k) => {
     const R = p.R, on = k === idx; R.active = on;
     const f = { s: R.root.scale.x, z: R.root.position.z, o: R.ring.material.opacity };
-    const ts = on ? R.s0 * 1.22 : R.s0, tz = on ? R.home.z + .9 : R.home.z, to = on ? 1 : .25;
+    const ts = on ? R.s0 * POP : R.s0, tz = on ? R.home.z + POPZ : R.home.z, to = on ? 1 : .25;
     tween(450, t => { R.root.scale.setScalar(f.s + (ts - f.s) * t); R.root.position.z = f.z + (tz - f.z) * t; R.ring.material.opacity = f.o + (to - f.o) * t; }, ease.back);
   });
 }
@@ -746,12 +763,13 @@ async function dropCard(g, color = '#2FD6F0') {
   sfx('flip'); await tween(500, t => { g.rotation.y = Math.PI * (1 - t); }, ease.inOut);
   g.userData.anim = false; threat = g;
 }
-async function revealImage(img) {
+async function revealImage(img, front, back) {
   if (!threat || !img) return;
   const a = img.width / img.height, ch = Math.round(720 / a);
   sfx('flip'); threat.userData.anim = true;
   await tween(260, t => { threat.rotation.y = t * Math.PI / 2; }, ease.inOut);
   setFront(threat, imageCanvas(img, 720, ch, 30), a);
+  if (front) threat.userData.zoom = { front, back };
   await tween(320, t => { threat.rotation.y = Math.PI / 2 * (1 - t); }, ease.out);
   threat.userData.anim = false;
 }
@@ -827,13 +845,14 @@ async function rollDie(type) {
 function showTurn() {
   const p = cur(); if (!p) return;
   S.mode = null; hud(); whose(); setActive(S.turn);
-  dock(`<div class="turn" style="--pc:${p.color}"><div><h3>Vez de <i>${esc(p.name)}</i></h3><p>Rodada ${S.round} de ${S.rounds}. Role o dado para descobrir o desafio.${p.power.shield || p.power.double ? ' Poder guardado: ' + [p.power.shield ? 'Escudo' : '', p.power.double ? 'Dobro' : ''].filter(Boolean).join(' e ') + '.' : ''}</p></div><button class="btn pri big" id="go">Rolar o dado</button></div>`);
-  $('#go').onclick = rollTurn; $('#go').focus({ preventScroll: true });
-  setTimeout(() => p.R && p.R.wave(), 200); sfx('turn');
+  const pw = [p.power.shield ? 'Escudo' : '', p.power.double ? 'Dobro' : ''].filter(Boolean).join(' e ');
+  dock(`<div class="turn" style="--pc:${p.color}"><div><h3>Vez de <i>${esc(p.name)}</i></h3><p>Rodada ${S.round} de ${S.rounds}${pw ? ' · Poder guardado: ' + pw : ''}. Toque no dado para descobrir o desafio.</p></div><button class="dicebtn" id="go" aria-label="Rolar o dado"><svg viewBox="0 0 32 32"><rect x="3" y="3" width="26" height="26" rx="6" fill="#1A1204"/><g fill="#FFC14D"><circle cx="10" cy="10" r="2.6"/><circle cx="22" cy="10" r="2.6"/><circle cx="16" cy="16" r="2.6"/><circle cx="10" cy="22" r="2.6"/><circle cx="22" cy="22" r="2.6"/></g></svg>Rolar</button></div>`);
+  $('#go').onclick = rollTurn; if (!MOBILE) $('#go').focus({ preventScroll: true });
+  setTimeout(() => p.R && p.R.wave(), 200); sfx('turn'); haptic(20);
 }
 async function rollTurn() {
   if (S.busy) return; S.busy = true;
-  dock(`<div class="prompt"><span>O dado está rolando…</span></div>`);
+  dockStatus(`O dado está rolando ${DOTS}`, 'var(--amber)'); haptic([15, 40, 15, 40, 15]);
   const ev = pickEvent(); S.lastEv.push(ev);
   removeThreat(); if (ev === 'relampago' || ev === 'raiox' || ev === 'coringa') hideVillain();
   await rollDie(ev); splash(ev); sfx(ev === 'relampago' ? 'volt' : 'power'); await wait(1000);
@@ -850,14 +869,15 @@ function nextTurn() {
   if (S.turn >= S.players.length) { S.turn = 0; S.round++; if (S.round > S.rounds) return endGame(true); toast(`Rodada ${S.round}`, '#2FD6F0'); }
   showTurn();
 }
-function feedback({ cls, verdict, title, body, front, back }) {
-  dock(`<div class="fb"><div class="verdict ${cls}">${verdict}</div><div><h3>${title}</h3>${body}</div><div class="acts"><button class="btn pri" id="go">${nextLabel()}</button>${front ? '<button class="btn sec" id="seeCard">Frente e verso</button>' : ''}</div></div>`);
-  $('#go').onclick = nextTurn; $('#go').focus({ preventScroll: true });
+function feedback({ cls, verdict, title, body = '', more = '', front, back }) {
+  dock(`<div class="fb"><div class="fb-top"><span class="verdict ${cls}">${verdict}</span></div><h3>${title}</h3>${body}${more ? `<div class="more">${more}</div><button class="linkbtn moreBtn" id="moreBtn">Ver detalhes</button>` : ''}<div class="acts"><button class="btn pri" id="go">${nextLabel()}</button>${front ? '<button class="btn sec" id="seeCard">Ver carta</button>' : ''}</div></div>`);
+  $('#go').onclick = nextTurn; if (!MOBILE) $('#go').focus({ preventScroll: true });
   if (front) $('#seeCard').onclick = () => lightbox(front, back);
+  if (more) $('#moreBtn').onclick = () => { const f = $('.fb'); f.classList.toggle('open'); $('#moreBtn').textContent = f.classList.contains('open') ? 'Ocultar detalhes' : 'Ver detalhes'; };
 }
-function optButton(i, label, inner, cls = '') {
-  const b = document.createElement('button'); b.className = 'opt ' + cls; b.style.animationDelay = (i * 100) + 'ms';
-  b.innerHTML = `<div class="k">${label}<em>${i + 1}</em></div>${inner}`; setTimeout(() => sfx('deal'), i * 100); return b;
+function optButton(i, inner, cls = '') {
+  const b = document.createElement('button'); b.className = 'opt ' + cls; b.style.animationDelay = (i * 90) + 'ms';
+  b.innerHTML = (cls.includes('img') ? '' : `<span class="num">${i + 1}</span>`) + inner; setTimeout(() => sfx('deal'), i * 90); return b;
 }
 function markOpts(rightN, chosenN) { document.querySelectorAll('#hand .opt').forEach(b => { const n = +b.dataset.n; b.classList.add(n === rightN ? 'right' : n === chosenN ? 'wrong' : 'dim'); }); }
 
@@ -866,18 +886,19 @@ async function evAtaque(p) {
   const card = drawRisk(); S.busy = true;
   await throwCard(makeCard(threatCanvas(card)), VMAP[card.n]); S.busy = false;
   const opts = shuffle([card, ...distractors(card.n, 2)]);
-  dock(`<div class="prompt"><span>${esc(p.name)}, qual defesa neutraliza esta ameaça?</span><kbd>teclas 1 · 2 · 3 · 20 s</kbd></div><div class="hand" id="hand"></div>`);
+  dock(`<div class="prompt"><span>${esc(p.name)}, qual defesa neutraliza <b style="color:var(--ink)">${esc(card.t)}</b>?</span><kbd class="kbd-only">teclas 1 · 2 · 3</kbd></div><div class="hand" id="hand"></div>`);
   let done = false;
   const answer = async o => {
     if (done) return; done = true; S.busy = true;
     const left = stopTimer(), ok = !!o && o.n === card.n; markOpts(card.n, o && o.n); p.st.atkN++;
+    haptic(ok ? 35 : [70, 50, 70]); await wait(650); dockStatus(ok ? 'Defesa certa!' : (o ? 'Defesa errada' : 'Tempo esgotado'), ok ? 'var(--ok)' : 'var(--bad)');
     let v;
     if (ok) { p.st.atk++; const pts = award(p, 100, left); sfx('ok'); flash(true); toast('+' + pts, '#3DDC97'); bump(p, true); edgeGlow('#3DDC97'); await robotStrike(p); v = { cls: 'ok', verdict: `Defendido +${pts}` }; }
     else { const r = penalize(p); sfx('bad'); flash(false); toast(o ? 'Defesa errada' : 'Tempo esgotado', '#FF4D63'); bump(p, false); edgeGlow('#FF4D63'); await villainStrike(p); v = r.shielded ? { cls: 'neu', verdict: 'Escudo absorveu' } : { cls: 'bad', verdict: `Integridade −${r.dmg}%` }; }
-    hud(); await wait(350); await revealImage(imgs['r' + card.n]); S.busy = false;
+    hud(); await wait(350); await revealImage(imgs['r' + card.n], rsrc(card.n), rsrc(card.n, 'b')); S.busy = false;
     feedback({ ...v, title: `${card.n}. ${esc(card.t)}`, body: `<p><span class="lab">Defesa</span>${esc(defText(card.d))}</p>`, front: rsrc(card.n), back: rsrc(card.n, 'b') });
   };
-  opts.forEach((o, i) => { const b = optButton(i, 'Defesa', defHTML(o.d)); b.dataset.n = o.n; b.onclick = () => answer(o); $('#hand').append(b); });
+  opts.forEach((o, i) => { const b = optButton(i, `<p>${esc(defText(o.d))}</p>`); b.dataset.n = o.n; b.onclick = () => answer(o); $('#hand').append(b); });
   startTimer(20000, () => answer(null));
 }
 
@@ -886,18 +907,19 @@ async function evRaioX(p) {
   const card = drawRisk(), sig = pick(card.sig); S.busy = true;
   await dropCard(makeCard(clueCanvas(sig)), '#2FD6F0'); S.busy = false;
   const opts = shuffle([card, ...distractors(card.n, 3)]);
-  dock(`<div class="prompt"><span>${esc(p.name)}, qual RiskCard explica este sinal?</span><kbd>teclas 1 a 4 · 25 s</kbd></div><div class="hand four" id="hand"></div>`);
+  dock(`<p class="story"><b>Sinal</b>${esc(sig)}</p><div class="prompt"><span>${esc(p.name)}, qual RiskCard explica este sinal?</span><kbd class="kbd-only">teclas 1 a 4</kbd></div><div class="hand four" id="hand"></div>`);
   let done = false;
   const answer = async o => {
     if (done) return; done = true; S.busy = true;
     const left = stopTimer(), ok = !!o && o.n === card.n; markOpts(card.n, o && o.n); p.st.rxN++;
+    haptic(ok ? 35 : [70, 50, 70]); await wait(750); dockStatus(ok ? 'Diagnóstico certo!' : (o ? 'Diagnóstico errado' : 'Tempo esgotado'), ok ? 'var(--ok)' : 'var(--bad)');
     let v;
     if (ok) { p.st.rx++; const pts = award(p, 120, left); sfx('ok'); flash(true); toast('+' + pts, '#3DDC97'); bump(p, true); edgeGlow('#3DDC97'); await robotStrike(p, false); v = { cls: 'ok', verdict: `Diagnóstico certo +${pts}` }; }
     else { const r = penalize(p); sfx('bad'); flash(false); toast(o ? 'Diagnóstico errado' : 'Tempo esgotado', '#FF4D63'); bump(p, false); edgeGlow('#FF4D63'); await villainStrike(p); v = r.shielded ? { cls: 'neu', verdict: 'Escudo absorveu' } : { cls: 'bad', verdict: `Integridade −${r.dmg}%` }; }
-    hud(); await wait(300); await revealImage(imgs['r' + card.n]); S.busy = false;
-    feedback({ ...v, title: `${card.n}. ${esc(card.t)}`, body: `<p><span class="lab">Sinal</span>${esc(sig)}</p><p><span class="lab">Defesa</span>${esc(defText(card.d))}</p>`, front: rsrc(card.n), back: rsrc(card.n, 'b') });
+    hud(); await wait(300); await revealImage(imgs['r' + card.n], rsrc(card.n), rsrc(card.n, 'b')); S.busy = false;
+    feedback({ ...v, title: `${card.n}. ${esc(card.t)}`, body: `<p><span class="lab">Defesa</span>${esc(defText(card.d))}</p>`, more: `<p><span class="lab">Sinal</span>${esc(sig)}</p>`, front: rsrc(card.n), back: rsrc(card.n, 'b') });
   };
-  opts.forEach((o, i) => { const b = optButton(i, 'Carta', `<img src="${rsrc(o.n)}" alt="RiskCard ${o.n}: ${esc(o.t)}">`, 'img'); b.dataset.n = o.n; b.onclick = () => answer(o); $('#hand').append(b); });
+  opts.forEach((o, i) => { const b = optButton(i, `<img src="${rsrc(o.n)}" alt=""><span>${esc(o.t)}</span>`, 'img'); b.setAttribute('aria-label', `RiskCard ${o.n}: ${o.t}`); b.dataset.n = o.n; b.onclick = () => answer(o); $('#hand').append(b); });
   startTimer(25000, () => answer(null));
 }
 
@@ -907,12 +929,13 @@ async function evIncidente(p) {
   await throwCard(makeCard(teaserCanvas(imgs['i' + inc.n], inc)), inc.v); S.busy = false;
   const extra = shuffle(RISKS.filter(r => !inc.rel.includes(r.n))).slice(0, 8 - inc.rel.length);
   const pool = shuffle([...inc.rel.map(byN), ...extra]);
-  dock(`<p class="story"><b>${esc(inc.when)}</b>${esc(inc.what)}</p><div class="prompt"><span>${esc(p.name)}, marque as ${inc.rel.length} RiskCards que se conectam a este caso</span><kbd>45 s</kbd></div><div class="chips" id="chips"></div><div class="row" style="margin-top:12px"><button class="btn pri" id="go" disabled>Confirmar conexões</button><span class="note" id="selN">0 de ${inc.rel.length} marcadas</span></div>`);
+  dock(`<p class="story${MOBILE ? ' clamp' : ''}" id="story"><b>${esc(inc.t)} · ${esc(inc.when)}</b>${esc(inc.what)}</p><div class="prompt"><span>${esc(p.name)}, marque as ${inc.rel.length} RiskCards ligadas ao caso</span></div><div class="chips" id="chips"></div><div class="row" style="margin-top:10px"><button class="btn pri wide" id="go" disabled>Confirmar conexões</button><span class="note" id="selN">0 de ${inc.rel.length}</span></div>`);
+  $('#story').onclick = () => $('#story').classList.toggle('clamp');
   const sel = new Set(); let done = false;
   pool.forEach((r, i) => {
     const b = document.createElement('button'); b.className = 'chip'; b.style.animationDelay = (i * 50) + 'ms'; b.setAttribute('aria-pressed', 'false'); b.dataset.n = r.n;
     b.innerHTML = `<img src="${rsrc(r.n)}" alt=""><span><small>${pad(r.n)}</small>${esc(r.t)}</span>`;
-    b.onclick = () => { if (done) return; sel.has(r.n) ? sel.delete(r.n) : sel.add(r.n); b.setAttribute('aria-pressed', sel.has(r.n)); sfx('deal'); $('#go').disabled = !sel.size; $('#selN').textContent = `${sel.size} de ${inc.rel.length} marcadas`; };
+    b.onclick = () => { if (done) return; sel.has(r.n) ? sel.delete(r.n) : sel.add(r.n); b.setAttribute('aria-pressed', sel.has(r.n)); sfx('deal'); $('#go').disabled = !sel.size; $('#selN').textContent = `${sel.size} de ${inc.rel.length}`; haptic(10); };
     $('#chips').append(b);
   });
   const confirm = async () => {
@@ -920,13 +943,14 @@ async function evIncidente(p) {
     const hits = [...sel].filter(n => inc.rel.includes(n)).length, wrong = sel.size - hits, total = inc.rel.length;
     document.querySelectorAll('#chips .chip').forEach(b => { const n = +b.dataset.n, isRel = inc.rel.includes(n), chosen = sel.has(n); b.classList.add(isRel && chosen ? 'ok' : chosen ? 'bad' : isRel ? 'miss' : 'dim'); });
     p.st.incN++; p.st.incHits += hits;
+    haptic(hits === total && !wrong ? 35 : [70, 50, 70]); await wait(1300); dockStatus(`${hits} de ${total} conexões certas`, hits === total && !wrong ? 'var(--ok)' : hits >= Math.ceil(total / 2) ? 'var(--volt)' : 'var(--bad)');
     let v; const perfect = hits === total && wrong === 0;
     if (perfect) { const pts = award(p, hits * 60 + 100); sfx('ok'); flash(true); toast('Caso resolvido +' + pts, '#3DDC97'); bump(p, true); confetti(3); await robotStrike(p); v = { cls: 'ok', verdict: `Conexões perfeitas +${pts}` }; }
     else if (hits >= Math.ceil(total / 2)) { const pts = Math.max(0, hits * 60 - wrong * 30); p.score += pts; sfx('deal'); toast('+' + pts, '#F2D43D'); bump(p, true); p.R.confused(); hideVillain(); v = { cls: 'neu', verdict: `${hits}/${total} conexões +${pts}` }; }
     else { const pts = Math.max(0, hits * 60 - wrong * 30); p.score += pts; const r = penalize(p); sfx('bad'); flash(false); toast('Caso sem solução', '#FF4D63'); bump(p, false); await villainStrike(p); v = r.shielded ? { cls: 'neu', verdict: `Escudo · ${hits}/${total} conexões` } : { cls: 'bad', verdict: `${hits}/${total} · Integridade −${r.dmg}%` }; }
-    hud(); await wait(350); await revealImage(imgs['i' + inc.n]); S.busy = false;
+    hud(); await wait(350); await revealImage(imgs['i' + inc.n], isrc(inc.n), isrc(inc.n, 'b')); S.busy = false;
     const relTxt = inc.rel.map(n => `${pad(n)} ${byN(n).t}`).join(' · ');
-    feedback({ ...v, title: `Incident Card ${pad(inc.n)} · ${esc(inc.t)}`, body: `<p><span class="lab">Conexões do card</span>${esc(relTxt)}</p><p class="quote">“${esc(inc.lesson)}”</p><p><span class="lab">Como poderia ter sido evitado</span></p><ul>${inc.fix.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`, front: isrc(inc.n), back: isrc(inc.n, 'b') });
+    feedback({ ...v, title: `Incident Card ${pad(inc.n)} · ${esc(inc.t)}`, body: `<p class="quote">“${esc(inc.lesson)}”</p><p><span class="lab">Conexões</span>${esc(relTxt)}</p>`, more: `<p><span class="lab">Como poderia ter sido evitado</span></p><ul>${inc.fix.map(f => `<li>${esc(f)}</li>`).join('')}</ul>`, front: isrc(inc.n), back: isrc(inc.n, 'b') });
   };
   $('#go').onclick = confirm;
   startTimer(45000, confirm);
@@ -934,12 +958,12 @@ async function evIncidente(p) {
 
 /* ---------------- RELÂMPAGO ---------------- */
 let buzzHandler = null;
-function buzz(i) { if (S.mode !== 'buzz' || !buzzHandler) return; const b = document.querySelector(`.buzz[data-i="${i}"]`); if (b) { b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 140); } buzzHandler(i); }
+function buzz(i) { if (S.mode !== 'buzz' || !buzzHandler) return; haptic(25); const b = document.querySelector(`.buzz[data-i="${i}"]`); if (b) { b.classList.add('hit'); setTimeout(() => b.classList.remove('hit'), 140); } buzzHandler(i); }
 async function evRelampago() {
   const n = S.players.length, PAIRS = 6; S.mode = 'buzz';
   setActive(-1); S.players.forEach(p => poseTo(p.R.pose, { crouch: .5, lean: .12, lx: -.4, rx: -.4 }, 300));
-  dock(`<div class="prompt"><span>Relâmpago: aperte seu botão quando a defesa combinar com a ameaça</span><kbd>teclas 1 a ${n}</kbd></div><div class="buzzers" id="buzz">${S.players.map((p, i) => `<button class="buzz" data-i="${i}" style="--pc:${p.color}">${esc(p.name)}<kbd>${i + 1}</kbd><span class="sc" id="bsc${i}">0</span></button>`).join('')}</div>`);
-  document.querySelectorAll('.buzz').forEach(b => b.onclick = () => buzz(+b.dataset.i));
+  dock(`<div class="prompt"><span>Bata no seu botão quando combinar</span><kbd class="kbd-only">teclas 1 a ${n}</kbd></div><div class="buzzers" id="buzz">${S.players.map((p, i) => `<button class="buzz" data-i="${i}" style="--pc:${p.color}"><b>${esc(p.name)}</b><kbd>${i + 1}</kbd><span class="sc" id="bsc${i}">0</span></button>`).join('')}</div>`);
+  document.querySelectorAll('.buzz').forEach(b => { b.addEventListener('pointerdown', e => { e.preventDefault(); buzz(+b.dataset.i); }); b.onclick = e => { if (e.detail === 0) buzz(+b.dataset.i); }; });
   const gains = S.players.map(() => 0), q = $('#quick');
   if (S.quickDeck.length < PAIRS) S.quickDeck = shuffle(RISKS.map(r => r.n));
   for (let k = 0; k < PAIRS; k++) {
@@ -983,9 +1007,10 @@ async function evCoringa(p) {
   S.busy = true;
   const img = imgs.coringa, a = img.width / img.height;
   const g = makeCard(imageCanvas(img, 720, Math.round(720 / a), 30)); setFront(g, imageCanvas(img, 720, Math.round(720 / a), 30), a);
-  await dropCard(g, '#C77DFF'); confetti(2); S.busy = false;
+  g.userData.zoom = { front: 'assets/rc/coringa_f.jpg', back: 'assets/rc/coringa_b.jpg' };
+  await dropCard(g, '#C77DFF'); confetti(2); S.busy = false; haptic([20, 30, 20]);
   const A = drawRisk(); let B = drawRisk(); while (B.n === A.n) B = drawRisk();
-  dock(`<div class="cor"><div class="pair"><img src="${rsrc(A.n)}" alt="RiskCard ${A.n}: ${esc(A.t)}" data-n="${A.n}"><img src="${rsrc(B.n)}" alt="RiskCard ${B.n}: ${esc(B.t)}" data-n="${B.n}"></div><div><h4>Carta Coringa · conecte os riscos</h4><p><b style="color:var(--ink)">${esc(A.t)} + ${esc(B.t)}</b>. ${esc(pick(CORINGA.q))} Explique para a turma em até um minuto.</p><p class="note">Exemplo do baralho: ${esc(pick(CORINGA.ex))}</p><div class="row" style="margin-top:10px"><button class="btn pri" id="go">A turma aprovou · +100</button><button class="btn sec" id="no">Seguir sem pontos</button></div></div></div>`);
+  dock(`<div class="cor"><div class="pair"><img src="${rsrc(A.n)}" alt="RiskCard ${A.n}: ${esc(A.t)}" data-n="${A.n}"><img src="${rsrc(B.n)}" alt="RiskCard ${B.n}: ${esc(B.t)}" data-n="${B.n}"></div><div><h4>Carta Coringa · conecte os riscos</h4><p><b style="color:var(--ink)">${esc(A.t)} + ${esc(B.t)}</b>. ${esc(pick(CORINGA.q))} Explique para a turma em até um minuto.</p><p class="note">Exemplo do baralho: ${esc(pick(CORINGA.ex))}</p><div class="row" style="margin-top:10px"><button class="btn pri wide" id="go">A turma aprovou · +100</button><button class="btn sec" id="no">Sem pontos</button></div></div></div>`);
   document.querySelectorAll('.pair img').forEach(im => im.onclick = () => lightbox(rsrc(+im.dataset.n), rsrc(+im.dataset.n, 'b')));
   startTimer(60000, null);
   await new Promise(res => {
@@ -1011,21 +1036,22 @@ async function evCoringa(p) {
 /* ---------------- fim de jogo e pódio ---------------- */
 function buildPodium(rank) {
   podium = new THREE.Group(); scene.add(podium);
-  const PW = Math.min(1.35, halfW * .42), hs = [1.0, .7, .45].map(h => h * PW), xs = [0, -PW * 1.08, PW * 1.08];
+  const PB = CY - CARD_H * .55;
+  const PW = Math.min(1.35, halfW * .42, CARD_H * .36), hs = [1.0, .7, .45].map(h => h * PW), xs = [0, -PW * 1.08, PW * 1.08];
   const cols = ['#FFD24A', '#D6E2F0', '#E0955A'];
   rank.slice(0, 3).forEach((p, i) => {
     const box = new THREE.Mesh(new THREE.BoxGeometry(PW, hs[i], PW * .8), new THREE.MeshStandardMaterial({ color: '#13294A', emissive: cols[i], emissiveIntensity: .12, metalness: .5, roughness: .4 }));
-    box.position.set(xs[i], FEET + hs[i] / 2, .6); podium.add(box);
-    const top = new THREE.Mesh(new THREE.BoxGeometry(PW * 1.02, .05, PW * .82), new THREE.MeshBasicMaterial({ color: cols[i] })); top.position.set(xs[i], FEET + hs[i], .6); podium.add(top);
+    box.position.set(xs[i], PB + hs[i] / 2, .6); podium.add(box);
+    const top = new THREE.Mesh(new THREE.BoxGeometry(PW * 1.02, .05, PW * .82), new THREE.MeshBasicMaterial({ color: cols[i] })); top.position.set(xs[i], PB + hs[i], .6); podium.add(top);
     const lc = document.createElement('canvas'); lc.width = lc.height = 128; const x = lc.getContext('2d'); x.fillStyle = cols[i]; x.font = '700 110px "Chakra Petch"'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(i + 1, 64, 70);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeTex(lc), transparent: true })); sp.scale.setScalar(PW * .45); sp.position.set(xs[i], FEET + hs[i] * .5, .6 + PW * .42); podium.add(sp);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: makeTex(lc), transparent: true })); sp.scale.setScalar(PW * .45); sp.position.set(xs[i], PB + hs[i] * .5, .6 + PW * .42); podium.add(sp);
   });
   const rs = PW * .62 / 1;
   rank.forEach((p, i) => {
     const R = p.R; R.active = false; R.ring.material.opacity = .25;
     let tgt, sc;
-    if (i < 3) { tgt = new THREE.Vector3(xs[i], FEET + hs[i], .6); sc = rs; }
-    else { const k = i - 3, m = rank.length - 3, span = Math.min(halfW * .8, m * .7); tgt = new THREE.Vector3(m > 1 ? -span + k * (2 * span / (m - 1)) : 0, FEET, -1.6); sc = rs * .8; }
+    if (i < 3) { tgt = new THREE.Vector3(xs[i], PB + hs[i], .6); sc = rs; }
+    else { const k = i - 3, m = rank.length - 3, span = Math.min(halfW * .8, m * .7); tgt = new THREE.Vector3(m > 1 ? -span + k * (2 * span / (m - 1)) : 0, PB, -1.6); sc = rs * .8; }
     const f = R.root.position.clone(), s0 = R.root.scale.x; R.yaw = 0; R.pose.walk = 1;
     tween(1100, t => { R.root.position.lerpVectors(f, tgt, t); R.root.position.y = f.y + (tgt.y - f.y) * t + Math.sin(t * Math.PI) * .8; R.root.scale.setScalar(s0 + (sc - s0) * t); }, ease.inOut).then(() => { R.pose.walk = 0; if (i === 0) R.dance(); else if (i < 3) R.cheer(); else R.wave(); });
   });
@@ -1034,6 +1060,7 @@ function endGame(survived) {
   S.playing = false; S.mode = null; stopTimer(); $('#quick').hidden = true; removeThreat(); hideVillain(); $('#whose').hidden = true; hud();
   const rank = [...S.players].sort((a, b) => b.score - a.score);
   buildPodium(rank);
+  haptic(survived ? [40, 60, 40, 60, 120] : [200]);
   if (survived) { sfx('win'); confetti(8); setTimeout(() => confetti(6), 1800); }
   else { setTimeout(() => { villain = villains.invasor; villain && villain.appear().then(() => villain.laugh()); }, 900); sfx('sad'); }
   const AW = [
@@ -1046,9 +1073,9 @@ function endGame(survived) {
   ].map(([t, d, f]) => { const best = Math.max(...S.players.map(f)); return best > 0 ? { t, d, best, who: S.players.filter(p => f(p) === best).map(p => p.name).join(', ') } : null; }).filter(Boolean);
   dock(`<div class="endgrid">
     <div><div class="eyebrow" style="margin-bottom:8px">${survived ? 'AI Factory protegida' : 'A integridade chegou a zero'}</div>
-      <h3 style="margin:0 0 10px;font:700 24px/1.1 var(--f-disp);text-transform:uppercase">${survived ? `${esc(rank[0].name)} venceu a partida` : 'O sistema caiu. Revejam as defesas e tentem de novo.'}</h3>
+      <h3>${survived ? `${esc(rank[0].name)} venceu a partida` : 'O sistema caiu. Revejam as defesas e tentem de novo.'}</h3>
       <ol class="rank">${rank.map((p, i) => `<li style="animation-delay:${i * 90}ms"><span class="pos">${i + 1}</span><i class="dot" style="background:${p.color}"></i><b>${esc(p.name)}</b><span class="st">${p.st.atk + p.st.rx} acertos · seq ${p.best}</span><span class="pts">${p.score.toLocaleString('pt-BR')}</span></li>`).join('')}</ol>
-      <div class="row" style="margin-top:12px"><button class="btn pri" id="go">Jogar de novo</button><button class="btn sec" id="newGroup">Novo grupo</button><button class="btn sec" id="endLib">Ver as cartas</button></div></div>
+      <div class="row" style="margin-top:12px"><button class="btn pri wide" id="go">Jogar de novo</button><button class="btn sec" id="newGroup">Novo grupo</button><button class="btn sec" id="endLib">Cartas</button></div></div>
     <div>${AW.length ? `<div class="eyebrow" style="margin-bottom:8px">Destaques</div><div class="awards">${AW.map(a => `<div class="award"><small>${a.t}</small><b>${esc(a.who)}</b><span>${a.d} · ${a.best}</span></div>`).join('')}</div>` : ''}
       <div class="eyebrow" style="margin:14px 0 6px">Para aprofundar</div>
       <ol class="refs"><li>Cartas RiskCards e Incident Cards · Letramento IA (Prof. Alexandre Caramelo).</li>
@@ -1112,8 +1139,11 @@ function startGame() {
 /* ---------------- biblioteca e lightbox ---------------- */
 function lightbox(front, back) {
   const d = document.createElement('div'); d.className = 'lb'; d.tabIndex = 0; d.setAttribute('role', 'dialog'); d.setAttribute('aria-label', 'Carta ampliada');
-  d.innerHTML = `<img src="${front}" alt="Frente da carta">${back ? `<img src="${back}" alt="Verso da carta">` : ''}`;
-  d.onclick = () => d.remove(); d.onkeydown = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.stopPropagation(); d.remove(); } };
+  d.innerHTML = `<img src="${front}" alt="Frente da carta">${back ? `<img src="${back}" alt="Verso da carta">` : ''}<button class="btn pri close">Fechar</button>`;
+  const close = () => d.remove();
+  d.querySelector('.close').onclick = e => { e.stopPropagation(); close(); };
+  d.onclick = e => { if (!MOBILE || e.target === d) close(); };
+  d.onkeydown = e => { if (e.key === 'Escape' || e.key === 'Enter') { e.stopPropagation(); close(); } };
   document.body.appendChild(d); d.focus();
 }
 function openLib(tab = 'r') {
@@ -1133,27 +1163,39 @@ $('#libClose').onclick = () => { $('#libScreen').hidden = true; };
 /* ============================================================
    LAYOUT, LOOP, TECLADO E BOOT
    ============================================================ */
-let aspect = 1;
+let aspect = 1, SIDE = false, RES = 140, POP = 1.22, POPZ = .9, VFEET = 0;
 function resize() {
-  const w = stage.clientWidth, h = stage.clientHeight;
+  const w = stage.clientWidth, h = stage.clientHeight; if (!w || !h) return;
   renderer.setSize(w, h, false); composer.setSize(w, h); bloom.setSize(w, h);
-  aspect = w / h; camera.aspect = aspect;
-  VIS = Math.max(CARD_H / .56, (CARD_W / .44) / aspect);
+  SIDE = innerWidth > innerHeight && innerHeight <= 520;
+  const fw = SIDE ? .54 : 1;
+  camera.aspect = w / h; aspect = w * fw / h;
+  if (SIDE) camera.setViewOffset(w, h, w * (1 - fw) / 2, 0, w, h); else camera.clearViewOffset();
+  RES = SIDE ? 0 : Math.round(Math.min(Math.max(h * .2, 118), 168));
+  const portrait = aspect < .9;
+  const k = SIDE ? .52 : portrait ? .40 : .46, wf = portrait ? .64 : .42, topM = .045;
+  VIS = Math.max(CARD_H / k, CARD_W / (wf * aspect));
   const dist = (VIS / 2) / Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   camBase.set(0, .1, dist); if (!CINE.on) camera.position.copy(camBase);
   camera.lookAt(0, 0, 0); camera.updateProjectionMatrix();
   halfW = VIS * aspect / 2;
-  CY = VIS / 2 - CARD_H / 2 - VIS * .05;
-  FEET = -VIS / 2 + VIS * .04;
+  CY = VIS / 2 - topM * VIS - CARD_H / 2;
+  FEET = -VIS / 2 + (RES / h + .03) * VIS;
   grid.position.y = FEET; lane.position.y = FEET + .01;
-  const vs = Math.min(1.8, VIS * .3) / 2.1, vx = Math.min(halfW - .6 * vs - .1, 3.9);
-  Object.values(villains).forEach(v => { v.s0 = vs * v.c.scale; v.x0 = vx; v.z0 = -1.3; });
-  const wide = aspect > 1.4, coreS = wide ? 1.1 : 1.3;
+  const cardFrac = topM + CARD_H / VIS;
+  stage.style.setProperty('--reserve', RES + 'px');
+  stage.style.setProperty('--toast-y', ((topM + CARD_H / VIS / 2) * 100).toFixed(1) + '%');
+  stage.style.setProperty('--hint-y', ((cardFrac + .012) * 100).toFixed(1) + '%');
+  const vs = Math.min(1.8, VIS * (portrait ? .15 : .3)) / 2.1;
+  VFEET = portrait ? CY - CARD_H * .62 : FEET;
+  Object.values(villains).forEach(v => { v.s0 = vs * v.c.scale; v.x0 = portrait ? halfW * .76 : Math.min(halfW - .6 * vs - .1, 3.9); v.z0 = portrait ? .35 : -1.3; });
+  const wide = aspect > 1.4, coreS = wide ? 1.1 : portrait ? .85 : 1.3;
   coreGroup.scale.setScalar(coreS);
-  coreGroup.position.set(wide ? -Math.min(halfW * .55, 4.6) : 0, FEET + 1.2 * coreS, wide ? -4.5 : -7);
+  if (portrait) coreGroup.position.set(-halfW * .62, FEET + 2.1, -9); else coreGroup.position.set(wide ? -Math.min(halfW * .55, 4.6) : 0, FEET + 1.2 * coreS, wide ? -4.5 : -7);
   layoutRobots();
 }
 new ResizeObserver(resize).observe(stage);
+addEventListener('orientationchange', () => setTimeout(resize, 250));
 
 const clock = new THREE.Clock();
 function loop() {
@@ -1185,9 +1227,12 @@ function loop() {
   if (die && die.visible === false) {}
   if (T.on) {
     const f = Math.max(0, 1 - (now - T.t0) / T.ms);
-    $('#timerFill').style.transform = `scaleX(${f})`; $('#timerLbl').textContent = Math.ceil(f * T.ms / 1000) + ' s';
+    const secs = Math.ceil(f * T.ms / 1000); $('#timerFill').style.transform = `scaleX(${f})`; $('#timerLbl').textContent = secs + ' s';
+    if (secs <= 3 && secs > 0 && secs !== T.lastSec) { T.lastSec = secs; sfx('tick'); haptic(12); $('#timer').classList.add('hurry'); }
     if (f <= 0) { const cb = T.cb; stopTimer(); if (cb) cb(); }
   }
+  const hintOn = !!(threat && !threat.userData.anim && S.playing && !CINE.on && !zoomedOnce && !document.querySelector('.lb'));
+  if (hintOn === $('#zoomhint').hidden) $('#zoomhint').hidden = !hintOn;
   camera.position.copy(CINE.on ? CINE.pos : camBase);
   if (shake > 0) { camera.position.x += (Math.random() - .5) * shake * .35; camera.position.y += (Math.random() - .5) * shake * .35; shake = Math.max(0, shake - dt * 2); }
   if (!CINE.on) camera.position.x += Math.sin(el * .3) * .15;
@@ -1198,6 +1243,20 @@ function loop() {
   composer.render();
 }
 
+const ray = new THREE.Raycaster(), tapPt = new THREE.Vector2(); let downAt = null;
+canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY, performance.now()]; });
+canvas.addEventListener('pointerup', e => {
+  if (!downAt || CINE.on) return; const [x0, y0, t0] = downAt; downAt = null;
+  if (Math.hypot(e.clientX - x0, e.clientY - y0) > 14 || performance.now() - t0 > 700) return;
+  if (!threat || threat.userData.anim) return;
+  const r = canvas.getBoundingClientRect(); tapPt.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+  ray.setFromCamera(tapPt, camera);
+  if (ray.intersectObject(threat, true).length) zoomThreat();
+});
+function zoomThreat() {
+  const z = threat && threat.userData.zoom; if (!z) return; zoomedOnce = true; sfx('flip'); haptic(10);
+  if (z.front) lightbox(z.front, z.back); else lightbox(z.canvas.toDataURL('image/jpeg', .9));
+}
 addEventListener('keydown', e => {
   if (e.target && (e.target.tagName === 'INPUT')) return;
   const lb = document.querySelector('.lb'); if (lb) return;
